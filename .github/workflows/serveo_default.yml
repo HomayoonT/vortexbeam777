@@ -1,10 +1,10 @@
-name: Linux VNC
+name: Linux VNC Serveo
 
 on:
   workflow_dispatch:
 
 jobs:
-  linux_vnc:
+  linux_vnc_serveo:
     runs-on: ubuntu-latest
     
     steps:
@@ -50,13 +50,15 @@ jobs:
       - name: Display Serveo public VNC address
         run: |
           echo "⏳ Detecting Serveo public address..."
-          HOST_LINE=$(grep -m 1 -Eo '[a-zA-Z0-9.-]+.serveo.net' serveo.log || true)
+          HOST_LINE=$(grep -oE 'https?://[a-zA-Z0-9.-]+.serveo.net' serveo.log || true)
           if [[ -z "$HOST_LINE" ]]; then
             echo "❌ Could not find Serveo URL in logs. Full log output:"
             cat serveo.log
           else
-            echo "✅ Public VNC address: $HOST_LINE:5900"
-            echo "🔗 Use this in your VNC client: $HOST_LINE:5900"
+            # Extract the hostname without 'http://' or 'https://'
+            HOSTNAME=$(echo $HOST_LINE | sed -E 's|https?://||')
+            echo "✅ Public VNC address: $HOSTNAME:5900"
+            echo "🔗 Use this in your VNC client: $HOSTNAME:5900"
           fi
 
       - name: Confirm DISPLAY env
