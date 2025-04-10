@@ -1,0 +1,75 @@
+name: Linux VNC
+
+on:
+  workflow_dispatch:
+
+jobs:
+  linux_vnc:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v2
+
+      - name: Install dependencies
+        run: |
+          sudo apt update
+          sudo apt install -y xvfb x11vnc wget curl jq default-jre unzip python3-pip xfce4 xfce4-goodies openssh-client
+
+      - name: Install Google Chrome
+        run: |
+          wget https://dl.google.com/linux/direct/google-chrome-stable_current_amd64.deb
+          sudo apt install -y ./google-chrome-stable_current_amd64.deb || sudo apt -f install -y
+
+      - name: Verify Google Chrome installation
+        run: google-chrome --version
+
+      - name: Set up Xvfb, Xfce, and VNC
+        run: |
+          # Start Xvfb (creates a virtual display)
+          Xvfb :1 -screen 0 1024x768x16 &
+          export DISPLAY=:1
+          echo "export DISPLAY=:1" >> $GITHUB_ENV
+          sleep 2
+
+          # Start the Xfce desktop environment
+          startxfce4 &
+          sleep 5
+
+          # Set up and start the VNC server using x11vnc
+          x11vnc -storepasswd ${{ secrets.VNC_PASSWORD }} /tmp/passwd
+          x11vnc -forever -rfbauth /tmp/passwd -display :1 -shared -bg
+          sleep 1
+
+      - name: Start localhost.run tunnel
+        run: |
+          echo "⏳ Starting localhost.run tunnel..."
+          # Establish the SSH tunnel; note that we forward port 5900 (for VNC)
+          ssh -o StrictHostKeyChecking=no -R 5900:localhost:5900 ssh.localhost.run > localhost_run.log 2>&1 &
+          sleep 5
+
+      - name: Display localhost.run public VNC address
+        run: |
+          echo "⏳ Detecting localhost.run public address..."
+          # Parse the public URL from the tunnel log; adjust the grep pattern if needed.
+          PUBLIC_ADDRESS=$(grep -o 'https\?://[^ ]*' localhost_run.log | head -n 1)
+          if [ -z "$PUBLIC_ADDRESS" ]; then
+            echo "Unable to detect public address. Please check localhost_run.log for details."
+          else
+            # Append the VNC port (5900) to the public address.
+            VNC_ADDRESS="${PUBLIC_ADDRESS}:5900"
+            echo "✅ Public VNC address: $VNC_ADDRESS"
+            echo "🔗 Use this address in your VNC client (e.g. RealVNC): $VNC_ADDRESS"
+          fi
+          cat localhost_run.log
+
+      - name: Confirm DISPLAY env
+        run: echo $DISPLAY
+
+      - name: Keep job alive (waiting for continue.txt)
+        run: |
+          echo "🔧 Session is active. Connect your VNC client to the address above."
+          echo "Create a file named 'continue.txt' in the repository to proceed."
+          while [ ! -f continue.txt ]; do
+            sleep 10
+          done
