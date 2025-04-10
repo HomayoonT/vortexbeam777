@@ -1,0 +1,71 @@
+name: Linux VNC
+
+on:
+  workflow_dispatch:
+
+jobs:
+  linux_vnc:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v2
+
+      - name: Install dependencies
+        run: |
+          sudo apt update
+          sudo apt install -y xvfb x11vnc wget curl jq default-jre unzip python3-pip xfce4 xfce4-goodies openssh-client
+
+      - name: Install Google Chrome
+        run: |
+          wget https://dl.google.com/linux/direct/google-chrome-stable_current_amd64.deb
+          sudo apt install -y ./google-chrome-stable_current_amd64.deb || sudo apt -f install -y
+
+      - name: Verify Google Chrome installation
+        run: google-chrome --version
+
+      - name: Set up Xvfb, Xfce, VNC
+        run: |
+          # Set up Xvfb
+          Xvfb :1 -screen 0 1024x768x16 &
+          export DISPLAY=:1
+          echo "export DISPLAY=:1" >> $GITHUB_ENV
+          sleep 2
+
+          # Start Xfce desktop environment
+          startxfce4 &
+          sleep 5
+
+          # Set up VNC server
+          x11vnc -storepasswd ${{ secrets.VNC_PASSWORD }} /tmp/passwd
+          x11vnc -forever -rfbauth /tmp/passwd -display :1 -shared -bg
+          sleep 1
+
+      - name: Start Serveo tunnel
+        run: |
+          echo "🔌 Starting Serveo tunnel..."
+          ssh -o StrictHostKeyChecking=no -R 5900:localhost:5900 serveo.net > serveo.log 2>&1 &
+          sleep 5
+
+      - name: Display Serveo public VNC address
+        run: |
+          echo "⏳ Detecting Serveo public address..."
+          HOST_LINE=$(grep -m 1 -Eo '[a-zA-Z0-9.-]+.serveo.net' serveo.log || true)
+          if [[ -z "$HOST_LINE" ]]; then
+            echo "❌ Could not find Serveo URL in logs. Full log output:"
+            cat serveo.log
+          else
+            echo "✅ Public VNC address: $HOST_LINE:5900"
+            echo "🔗 Use this in your VNC client: $HOST_LINE:5900"
+          fi
+
+      - name: Confirm DISPLAY env
+        run: echo $DISPLAY
+
+      - name: Keep job alive (waiting for continue.txt)
+        run: |
+          echo "🔧 Session ready. Connect your VNC client to the address above."
+          echo "Create a file named 'continue.txt' in the repo to proceed."
+          while [ ! -f continue.txt ]; do
+            sleep 10
+          done
