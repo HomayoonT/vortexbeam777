@@ -1,4 +1,4 @@
-name: Linux VNC Serveo
+name: Linux VNC Servep
 
 on:
   workflow_dispatch:
@@ -51,13 +51,14 @@ jobs:
 
       - name: Start Serveo tunnel with random port
         run: |
-          # Generate a unique subdomain using the GitHub run identifier
+          # Use GITHUB_RUN_ID to generate a unique subdomain for the SSH tunnel
           SUBDOMAIN="vnc-${GITHUB_RUN_ID}"
           VNC_PORT=$VNC_PORT
           echo "Using custom subdomain: $SUBDOMAIN on port: $VNC_PORT"
           
           # Start the Serveo tunnel with our custom subdomain and random VNC port
-          ssh -o StrictHostKeyChecking=no -R ${SUBDOMAIN}:5900:localhost:${VNC_PORT} serveo.net > serveo.log 2>&1 &
+          # Forward VNC on port $VNC_PORT to the subdomain ${SUBDOMAIN}.serveo.net
+          ssh -o StrictHostKeyChecking=no -R ${SUBDOMAIN}:${VNC_PORT}:localhost:${VNC_PORT} serveo.net > serveo.log 2>&1 &
           sleep 5
 
       - name: Display Serveo public VNC address
@@ -65,7 +66,7 @@ jobs:
           echo "⏳ Detecting Serveo public address..."
           SUBDOMAIN="vnc-${GITHUB_RUN_ID}"
           VNC_PORT=$VNC_PORT
-          VNC_ADDRESS="${SUBDOMAIN}.serveo.net:5900"
+          VNC_ADDRESS="${SUBDOMAIN}.serveo.net:${VNC_PORT}"
           
           # Optionally, verify this in the serveo log (if you’d like to check the log contents)
           cat serveo.log
