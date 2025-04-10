@@ -1,10 +1,10 @@
-name: Linux VNC
+name: Linux VNC Serveo
 
 on:
   workflow_dispatch:
 
 jobs:
-  linux_vnc:
+  linux_vnc_serveo:
     runs-on: ubuntu-latest
 
     steps:

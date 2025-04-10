@@ -1,10 +1,10 @@
-name: Linux VNC
+name: Linux VNC Localhost.run
 
 on:
   workflow_dispatch:
 
 jobs:
-  linux_vnc:
+  linux_vnc_localhostrun:
     runs-on: ubuntu-latest
 
     steps:
