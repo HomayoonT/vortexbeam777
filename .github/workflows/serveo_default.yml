@@ -41,28 +41,36 @@ jobs:
           x11vnc -forever -rfbauth /tmp/passwd -display :1 -shared -bg
           sleep 1
 
-      - name: Generate unique port and start Serveo tunnel
+      - name: Generate random port for this run
+        id: random-port
         run: |
-          # Generate a unique port number based on the run ID
-          BASE_PORT=1024
-          UNIQUE_PORT=$((BASE_PORT + (${GITHUB_RUN_ID} % 64512)))
-          echo "Using port: $UNIQUE_PORT"
+          # Generate a random port number between 5900 and 6000 (to avoid overlap with default port)
+          RANDOM_PORT=$((5900 + RANDOM % 100))
+          echo "Random VNC port: $RANDOM_PORT"
+          echo "VNC_PORT=$RANDOM_PORT" >> $GITHUB_ENV
 
-          # Start Serveo tunnel with the unique port
-          ssh -R vnc-${GITHUB_RUN_ID}:$UNIQUE_PORT:localhost:$UNIQUE_PORT serveo.net > serveo.log 2>&1 &
+      - name: Start Serveo tunnel with random port
+        run: |
+          # Use GITHUB_RUN_ID to generate a unique subdomain for the SSH tunnel
+          SUBDOMAIN="vnc-${GITHUB_RUN_ID}"
+          VNC_PORT=$VNC_PORT
+          echo "Using custom subdomain: $SUBDOMAIN on port: $VNC_PORT"
+          
+          # Start the Serveo tunnel with our custom subdomain and random VNC port
+          ssh -o StrictHostKeyChecking=no -R ${SUBDOMAIN}:${VNC_PORT}:localhost:${VNC_PORT} serveo.net > serveo.log 2>&1 &
           sleep 5
 
       - name: Display Serveo public VNC address
         run: |
           echo "⏳ Detecting Serveo public address..."
-          # With a unique subdomain and port, the address is predictable.
           SUBDOMAIN="vnc-${GITHUB_RUN_ID}"
-          VNC_ADDRESS="${SUBDOMAIN}.serveo.net:$UNIQUE_PORT"
+          VNC_PORT=$VNC_PORT
+          VNC_ADDRESS="${SUBDOMAIN}.serveo.net:${VNC_PORT}"
           
-          # Optionally, verify this in the serveo log
+          # Optionally, verify this in the serveo log (if you’d like to check the log contents)
           cat serveo.log
           echo "✅ Public VNC address: $VNC_ADDRESS"
-          echo "🔗 Use this address in your VNC client (e.g., RealVNC): $VNC_ADDRESS"
+          echo "🔗 Use this address in your VNC client (e.g. RealVNC): $VNC_ADDRESS"
 
       - name: Confirm DISPLAY env
         run: echo $DISPLAY
